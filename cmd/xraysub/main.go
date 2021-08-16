@@ -1,4 +1,4 @@
-package xraysub
+package main
 
 import "github.com/Bpazy/xraysub"
 

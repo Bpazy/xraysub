@@ -1,8 +1,8 @@
 package xraysub
 
 import (
-	"github.com/google/martian/log"
 	"github.com/spf13/cobra"
+	"log"
 )
 
 var (
@@ -13,7 +13,8 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "xraysub",
 		Short: "",
-		Long:  ``,
+		Long: `不 畏 浮 云 遮 望 眼 · 金 睛 如 炬 耀 苍 穹
+K E E P   R I D I N G   /   N E V E R   L O O K   B A C K`,
 	}
 
 	versionCmd = &cobra.Command{
@@ -21,7 +22,7 @@ var (
 		Short: "Version prints the build information for xraysub",
 		Long:  `Version prints the build information for xraysub`,
 		Run: func(cmd *cobra.Command, args []string) {
-			log.Infof(buildVer)
+			log.Println(buildVer)
 		},
 	}
 )
