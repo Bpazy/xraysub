@@ -7,8 +7,8 @@
 
 ----
   
-![Build](https://github.com/Bpazy/behappy/workflows/Build/badge.svg)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Bpazy_behappy&metric=alert_status)](https://sonarcloud.io/dashboard?id=Bpazy_behappy)
+![Build](https://github.com/Bpazy/xraysub/workflows/Build/badge.svg)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Bpazy_xraysub&metric=alert_status)](https://sonarcloud.io/dashboard?id=Bpazy_xraysub)
 
 
 # Xraysub
