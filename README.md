@@ -7,7 +7,8 @@
 
 ----
   
-![Build](https://github.com/Bpazy/xraysub/workflows/Build/badge.svg)
+[![process](https://img.shields.io/badge/-in%20progress-%23ffc107?style=for-the-badge)](https://github.com/Bpazy/xraysub/projects/1]) <br>
+[![Build](https://github.com/Bpazy/xraysub/workflows/Build/badge.svg)](https://github.com/Bpazy/xraysub/actions/workflows/build.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Bpazy_xraysub&metric=alert_status)](https://sonarcloud.io/dashboard?id=Bpazy_xraysub)
 
 
