@@ -1,8 +1,7 @@
-package xraysub
+package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"log"
 )
 
 var (
@@ -16,19 +15,8 @@ var (
 		Long: `不 畏 浮 云 遮 望 眼 · 金 睛 如 炬 耀 苍 穹
 K E E P   R I D I N G   /   N E V E R   L O O K   B A C K`,
 	}
-
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Version prints the build information for xraysub",
-		Long:  `Version prints the build information for xraysub`,
-		Run: func(cmd *cobra.Command, args []string) {
-			log.Println(buildVer)
-		},
-	}
 )
 
-func Execute() error {
-	rootCmd.AddCommand(versionCmd)
-
-	return rootCmd.Execute()
+func Execute() {
+	cobra.CheckErr(rootCmd.Execute())
 }
