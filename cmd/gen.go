@@ -32,33 +32,38 @@ var genCmd = &cobra.Command{
 		cobra.CheckErr(err)
 
 		uris := strings.Split(strings.TrimSpace(string(dst)), "\n")
-		links := make([]*Link, len(uris))
-		for _, uri := range uris {
-			p, err := protocol.GetProtocol(uri)
-			if err != nil {
-				log.Warn("unrecognized protocol: " + uri)
-				continue
-			}
-
-			switch p {
-			case protocol.Shadowsocks:
-				cfg, err := protocol.ParseShadowsocksUri(uri)
-				if err != nil {
-					log.Warn("illegal shadowsocks uri schema: " + uri)
-					continue
-				}
-				links = append(links, &Link{
-					ssCfg: cfg,
-				})
-			case protocol.Vmess:
-
-			}
-		}
+		links := parseLinks(uris)
 
 		for _, cfg := range links {
 			log.Printf("Shadowsocks cfg: %+v", cfg)
 		}
 	},
+}
+
+func parseLinks(uris []string) []*Link {
+	links := make([]*Link, len(uris))
+	for _, uri := range uris {
+		p, err := protocol.GetProtocol(uri)
+		if err != nil {
+			log.Warn("unrecognized protocol: " + uri)
+			continue
+		}
+
+		switch p {
+		case protocol.Shadowsocks:
+			cfg, err := protocol.ParseShadowsocksUri(uri)
+			if err != nil {
+				log.Warn("illegal shadowsocks uri schema: " + uri)
+				continue
+			}
+			links = append(links, &Link{
+				ssCfg: cfg,
+			})
+		case protocol.Vmess:
+
+		}
+	}
+	return links
 }
 
 func init() {
