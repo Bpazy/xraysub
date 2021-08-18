@@ -2,21 +2,100 @@ package cmd
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"github.com/Bpazy/xraysub/protocol"
 	"github.com/go-resty/resty/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"io/ioutil"
 	"strings"
 )
 
 type genCmdConfig struct {
-	url string
+	url        string
+	outputFile string
 }
 
 var genCmdCfg = &genCmdConfig{}
 
+type System struct {
+	StatsOutboundUplink   bool `json:"statsOutboundUplink"`
+	StatsOutboundDownlink bool `json:"statsOutboundDownlink"`
+}
+
+type Policy struct {
+	System System `json:"system"`
+}
+
+type Log struct {
+	Access   string `json:"access"`
+	Error    string `json:"error"`
+	Loglevel string `json:"loglevel"`
+}
+
+type Sniffing struct {
+	Enabled      bool     `json:"enabled"`
+	DestOverride []string `json:"destOverride"`
+}
+
+type Settings struct {
+	Auth             string `json:"auth,omitempty"`
+	Udp              bool   `json:"udp"`
+	AllowTransparent bool   `json:"allowTransparent"`
+}
+
+type Inbound struct {
+	Tag      string   `json:"tag"`
+	Port     int      `json:"port"`
+	Listen   string   `json:"listen"`
+	Protocol string   `json:"protocol"`
+	Sniffing Sniffing `json:"sniffing"`
+	Settings Settings `json:"settings"`
+}
+
+type BaseOutbound struct {
+	Tag      string `json:"tag"`
+	Protocol string `json:"protocol"`
+}
+
+type ShadowsocksOutbound struct {
+	BaseOutbound
+	Settings struct {
+		Servers []struct {
+			Address  string `json:"address"`
+			Method   string `json:"method"`
+			Ota      bool   `json:"ota"`
+			Password string `json:"password"`
+			Port     int    `json:"port"`
+			Level    int    `json:"level"`
+		} `json:"servers"`
+	} `json:"settings"`
+	StreamSettings struct {
+		Network string `json:"network"`
+	} `json:"streamSettings"`
+	Mux struct {
+		Enabled     bool `json:"enabled"`
+		Concurrency int  `json:"concurrency"`
+	} `json:"mux"`
+}
+
+type XrayConfig struct {
+	Policy    Policy                `json:"policy"`
+	Log       Log                   `json:"log"`
+	Inbounds  []Inbound             `json:"inbounds"`
+	Outbounds []ShadowsocksOutbound `json:"outbounds"`
+}
+
+func (c genCmdConfig) GetOutputFile() string {
+	if c.outputFile != "" {
+		return c.outputFile
+	}
+	// default output file
+	return "./xray-config.json"
+}
+
 type Link struct {
-	ssCfg *protocol.ShadowsocksConfig
+	SsCfg *protocol.ShadowsocksConfig
 }
 
 var genCmd = &cobra.Command{
@@ -34,14 +113,74 @@ var genCmd = &cobra.Command{
 		uris := strings.Split(strings.TrimSpace(string(dst)), "\n")
 		links := parseLinks(uris)
 
+		// pretty print
 		for _, cfg := range links {
-			log.Printf("Shadowsocks cfg: %+v", cfg)
+			j, _ := json.Marshal(cfg)
+			log.Printf("Shadowsocks cfg: %s", string(j))
 		}
+
+		xraycfg := &XrayConfig{
+			Policy: Policy{
+				System: System{
+					StatsOutboundUplink:   true,
+					StatsOutboundDownlink: true,
+				},
+			},
+			Log: Log{
+				Access:   "",
+				Error:    "",
+				Loglevel: "warning",
+			},
+			Inbounds:  getInbounds(),
+			Outbounds: getOutBounds(),
+		}
+		cfg, err := json.Marshal(xraycfg)
+		cobra.CheckErr(err)
+		err = ioutil.WriteFile(genCmdCfg.GetOutputFile(), cfg, 0644)
+		cobra.CheckErr(err)
 	},
 }
 
+func getOutBounds() []ShadowsocksOutbound {
+	return []ShadowsocksOutbound{}
+}
+
+func getInbounds() []Inbound {
+	return []Inbound{
+		{
+			Tag:      "socks",
+			Port:     10808,
+			Listen:   "0.0.0.0",
+			Protocol: "socks",
+			Sniffing: Sniffing{
+				Enabled:      true,
+				DestOverride: []string{"http", "tls"},
+			},
+			Settings: Settings{
+				Auth:             "noauth",
+				Udp:              true,
+				AllowTransparent: false,
+			},
+		},
+		{
+			Tag:      "http",
+			Port:     10809,
+			Listen:   "0.0.0.0",
+			Protocol: "http",
+			Sniffing: Sniffing{
+				Enabled:      true,
+				DestOverride: []string{"http", "tls"},
+			},
+			Settings: Settings{
+				Udp:              false,
+				AllowTransparent: false,
+			},
+		},
+	}
+}
+
 func parseLinks(uris []string) []*Link {
-	links := make([]*Link, len(uris))
+	var links []*Link
 	for _, uri := range uris {
 		p, err := protocol.GetProtocol(uri)
 		if err != nil {
@@ -57,7 +196,7 @@ func parseLinks(uris []string) []*Link {
 				continue
 			}
 			links = append(links, &Link{
-				ssCfg: cfg,
+				SsCfg: cfg,
 			})
 		case protocol.Vmess:
 
@@ -71,5 +210,6 @@ func init() {
 
 	const cUrl = "url"
 	genCmd.Flags().StringVarP(&genCmdCfg.url, cUrl, "u", "", "subscription address(URL)")
+	genCmd.Flags().StringVarP(&genCmdCfg.outputFile, "output-file", "o", "", "output configuration to file")
 	cobra.CheckErr(genCmd.MarkFlagRequired(cUrl))
 }
