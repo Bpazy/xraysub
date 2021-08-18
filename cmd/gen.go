@@ -38,19 +38,19 @@ type Sniffing struct {
 	DestOverride []string `json:"destOverride"`
 }
 
-type Settings struct {
+type InboundSettings struct {
 	Auth             string `json:"auth,omitempty"`
 	Udp              bool   `json:"udp"`
 	AllowTransparent bool   `json:"allowTransparent"`
 }
 
 type Inbound struct {
-	Tag      string   `json:"tag"`
-	Port     int      `json:"port"`
-	Listen   string   `json:"listen"`
-	Protocol string   `json:"protocol"`
-	Sniffing Sniffing `json:"sniffing"`
-	Settings Settings `json:"settings"`
+	Tag      string          `json:"tag"`
+	Port     int             `json:"port"`
+	Listen   string          `json:"listen"`
+	Protocol string          `json:"protocol"`
+	Sniffing Sniffing        `json:"sniffing"`
+	Settings InboundSettings `json:"settings"`
 }
 
 type BaseOutbound struct {
@@ -58,32 +58,40 @@ type BaseOutbound struct {
 	Protocol string `json:"protocol"`
 }
 
+type ShadowsocksServer struct {
+	Address  string `json:"address"`
+	Method   string `json:"method"`
+	Ota      bool   `json:"ota"`
+	Password string `json:"password"`
+	Port     int    `json:"port"`
+	Level    int    `json:"level"`
+}
+
+type OutboundSettings struct {
+	Servers []ShadowsocksServer `json:"servers"`
+}
+
+type StreamSettings struct {
+	Network string `json:"network"`
+}
+
+type Mux struct {
+	Enabled     bool `json:"enabled"`
+	Concurrency int  `json:"concurrency"`
+}
+
 type ShadowsocksOutbound struct {
 	BaseOutbound
-	Settings struct {
-		Servers []struct {
-			Address  string `json:"address"`
-			Method   string `json:"method"`
-			Ota      bool   `json:"ota"`
-			Password string `json:"password"`
-			Port     int    `json:"port"`
-			Level    int    `json:"level"`
-		} `json:"servers"`
-	} `json:"settings"`
-	StreamSettings struct {
-		Network string `json:"network"`
-	} `json:"streamSettings"`
-	Mux struct {
-		Enabled     bool `json:"enabled"`
-		Concurrency int  `json:"concurrency"`
-	} `json:"mux"`
+	Settings       *OutboundSettings `json:"settings"`
+	StreamSettings *StreamSettings   `json:"streamSettings"`
+	Mux            *Mux              `json:"mux"`
 }
 
 type XrayConfig struct {
-	Policy    Policy                `json:"policy"`
-	Log       Log                   `json:"log"`
-	Inbounds  []Inbound             `json:"inbounds"`
-	Outbounds []ShadowsocksOutbound `json:"outbounds"`
+	Policy    *Policy                `json:"policy"`
+	Log       *Log                   `json:"log"`
+	Inbounds  []*Inbound             `json:"inbounds"`
+	Outbounds []*ShadowsocksOutbound `json:"outbounds"`
 }
 
 func (c genCmdConfig) GetOutputFile() string {
@@ -120,19 +128,19 @@ var genCmd = &cobra.Command{
 		}
 
 		xraycfg := &XrayConfig{
-			Policy: Policy{
+			Policy: &Policy{
 				System: System{
 					StatsOutboundUplink:   true,
 					StatsOutboundDownlink: true,
 				},
 			},
-			Log: Log{
+			Log: &Log{
 				Access:   "",
 				Error:    "",
 				Loglevel: "warning",
 			},
 			Inbounds:  getInbounds(),
-			Outbounds: getOutBounds(),
+			Outbounds: getOutBounds(links),
 		}
 		cfg, err := json.Marshal(xraycfg)
 		cobra.CheckErr(err)
@@ -141,12 +149,40 @@ var genCmd = &cobra.Command{
 	},
 }
 
-func getOutBounds() []ShadowsocksOutbound {
-	return []ShadowsocksOutbound{}
+func getOutBounds(links []*Link) []*ShadowsocksOutbound {
+	var outbounds []*ShadowsocksOutbound
+	for _, link := range links {
+		outbounds = append(outbounds, &ShadowsocksOutbound{
+			BaseOutbound: BaseOutbound{
+				Tag:      "proxy",
+				Protocol: "shadowsocks",
+			},
+			Settings: &OutboundSettings{
+				Servers: []ShadowsocksServer{
+					{
+						Address:  link.SsCfg.Hostname,
+						Method:   link.SsCfg.Method,
+						Ota:      false,
+						Password: link.SsCfg.Password,
+						Port:     link.SsCfg.Port,
+						Level:    1,
+					},
+				},
+			},
+			StreamSettings: &StreamSettings{
+				Network: "tcp",
+			},
+			Mux: &Mux{
+				Enabled:     false,
+				Concurrency: -1,
+			},
+		})
+	}
+	return outbounds
 }
 
-func getInbounds() []Inbound {
-	return []Inbound{
+func getInbounds() []*Inbound {
+	return []*Inbound{
 		{
 			Tag:      "socks",
 			Port:     10808,
@@ -156,7 +192,7 @@ func getInbounds() []Inbound {
 				Enabled:      true,
 				DestOverride: []string{"http", "tls"},
 			},
-			Settings: Settings{
+			Settings: InboundSettings{
 				Auth:             "noauth",
 				Udp:              true,
 				AllowTransparent: false,
@@ -171,7 +207,7 @@ func getInbounds() []Inbound {
 				Enabled:      true,
 				DestOverride: []string{"http", "tls"},
 			},
-			Settings: Settings{
+			Settings: InboundSettings{
 				Udp:              false,
 				AllowTransparent: false,
 			},
