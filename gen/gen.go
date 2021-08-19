@@ -15,11 +15,14 @@ import (
 	"strings"
 )
 
+// CmdConfig config for command: xraysub gen
 type CmdConfig struct {
-	Url          string // subscription link
-	OutputFile   string // xray-core's configuration path
-	Ping         bool   // speed test to choose the fastest node
-	XrayCorePath string // xray-core path, for some case such as: speed test
+	Url           string // subscription link
+	OutputFile    string // xray-core's configuration path
+	Ping          bool   // speed test to choose the fastest node
+	XrayCorePath  string // xray-core path, for some case such as: speed test
+	XraySocksPort int    // xray-core listen socks port
+	XrayHttpPort  int    // xray-core listen http port
 }
 
 var Cfg = &CmdConfig{}
@@ -170,7 +173,7 @@ func getInbounds() []*xray.Inbound {
 	return []*xray.Inbound{
 		{
 			Tag:      "socks",
-			Port:     10808,
+			Port:     Cfg.XraySocksPort,
 			Listen:   "0.0.0.0",
 			Protocol: "socks",
 			Sniffing: &xray.Sniffing{
@@ -185,7 +188,7 @@ func getInbounds() []*xray.Inbound {
 		},
 		{
 			Tag:      "http",
-			Port:     10809,
+			Port:     Cfg.XrayHttpPort,
 			Listen:   "0.0.0.0",
 			Protocol: "http",
 			Sniffing: &xray.Sniffing{
