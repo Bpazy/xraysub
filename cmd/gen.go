@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/Bpazy/xraysub/protocol"
+	"github.com/Bpazy/xraysub/vmess"
 	"github.com/go-resty/resty/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -17,82 +18,6 @@ type genCmdConfig struct {
 }
 
 var genCmdCfg = &genCmdConfig{}
-
-type System struct {
-	StatsOutboundUplink   bool `json:"statsOutboundUplink"`
-	StatsOutboundDownlink bool `json:"statsOutboundDownlink"`
-}
-
-type Policy struct {
-	System System `json:"system"`
-}
-
-type Log struct {
-	Access   string `json:"access"`
-	Error    string `json:"error"`
-	Loglevel string `json:"loglevel"`
-}
-
-type Sniffing struct {
-	Enabled      bool     `json:"enabled"`
-	DestOverride []string `json:"destOverride"`
-}
-
-type InboundSettings struct {
-	Auth             string `json:"auth,omitempty"`
-	Udp              bool   `json:"udp"`
-	AllowTransparent bool   `json:"allowTransparent"`
-}
-
-type Inbound struct {
-	Tag      string          `json:"tag"`
-	Port     int             `json:"port"`
-	Listen   string          `json:"listen"`
-	Protocol string          `json:"protocol"`
-	Sniffing Sniffing        `json:"sniffing"`
-	Settings InboundSettings `json:"settings"`
-}
-
-type BaseOutbound struct {
-	Tag      string `json:"tag"`
-	Protocol string `json:"protocol"`
-}
-
-type ShadowsocksServer struct {
-	Address  string `json:"address"`
-	Method   string `json:"method"`
-	Ota      bool   `json:"ota"`
-	Password string `json:"password"`
-	Port     int    `json:"port"`
-	Level    int    `json:"level"`
-}
-
-type OutboundSettings struct {
-	Servers []ShadowsocksServer `json:"servers"`
-}
-
-type StreamSettings struct {
-	Network string `json:"network"`
-}
-
-type Mux struct {
-	Enabled     bool `json:"enabled"`
-	Concurrency int  `json:"concurrency"`
-}
-
-type ShadowsocksOutbound struct {
-	BaseOutbound
-	Settings       *OutboundSettings `json:"settings"`
-	StreamSettings *StreamSettings   `json:"streamSettings"`
-	Mux            *Mux              `json:"mux"`
-}
-
-type XrayConfig struct {
-	Policy    *Policy                `json:"policy"`
-	Log       *Log                   `json:"log"`
-	Inbounds  []*Inbound             `json:"inbounds"`
-	Outbounds []*ShadowsocksOutbound `json:"outbounds"`
-}
 
 func (c genCmdConfig) GetOutputFile() string {
 	if c.outputFile != "" {
@@ -127,20 +52,31 @@ var genCmd = &cobra.Command{
 			log.Printf("Shadowsocks cfg: %s", string(j))
 		}
 
-		xraycfg := &XrayConfig{
-			Policy: &Policy{
-				System: System{
+		xraycfg := &vmess.XrayConfig{
+			Policy: &vmess.Policy{
+				System: vmess.System{
 					StatsOutboundUplink:   true,
 					StatsOutboundDownlink: true,
 				},
 			},
-			Log: &Log{
+			Log: &vmess.Log{
 				Access:   "",
 				Error:    "",
 				Loglevel: "warning",
 			},
 			Inbounds:  getInbounds(),
 			Outbounds: getOutBounds(links),
+			Routing: &vmess.Routing{
+				DomainStrategy: "IPIfNonMatch",
+				DomainMatcher:  "linear",
+				Rules: []*vmess.Rule{
+					{
+						Type:        "field",
+						OutboundTag: "proxy",
+						Port:        "0-65535",
+					},
+				},
+			},
 		}
 		cfg, err := json.Marshal(xraycfg)
 		cobra.CheckErr(err)
@@ -149,16 +85,16 @@ var genCmd = &cobra.Command{
 	},
 }
 
-func getOutBounds(links []*Link) []*ShadowsocksOutbound {
-	var outbounds []*ShadowsocksOutbound
+func getOutBounds(links []*Link) []*vmess.ShadowsocksOutbound {
+	var outbounds []*vmess.ShadowsocksOutbound
 	for _, link := range links {
-		outbounds = append(outbounds, &ShadowsocksOutbound{
-			BaseOutbound: BaseOutbound{
-				Tag:      "proxy",
+		outbounds = append(outbounds, &vmess.ShadowsocksOutbound{
+			BaseOutbound: vmess.BaseOutbound{
+				Tag:      "proxy", // 应该测速后选择最合适的设置 tag 为 proxy
 				Protocol: "shadowsocks",
 			},
-			Settings: &OutboundSettings{
-				Servers: []ShadowsocksServer{
+			Settings: &vmess.OutboundSettings{
+				Servers: []*vmess.ShadowsocksServer{
 					{
 						Address:  link.SsCfg.Hostname,
 						Method:   link.SsCfg.Method,
@@ -169,10 +105,10 @@ func getOutBounds(links []*Link) []*ShadowsocksOutbound {
 					},
 				},
 			},
-			StreamSettings: &StreamSettings{
+			StreamSettings: &vmess.StreamSettings{
 				Network: "tcp",
 			},
-			Mux: &Mux{
+			Mux: &vmess.Mux{
 				Enabled:     false,
 				Concurrency: -1,
 			},
@@ -181,18 +117,18 @@ func getOutBounds(links []*Link) []*ShadowsocksOutbound {
 	return outbounds
 }
 
-func getInbounds() []*Inbound {
-	return []*Inbound{
+func getInbounds() []*vmess.Inbound {
+	return []*vmess.Inbound{
 		{
 			Tag:      "socks",
 			Port:     10808,
 			Listen:   "0.0.0.0",
 			Protocol: "socks",
-			Sniffing: Sniffing{
+			Sniffing: &vmess.Sniffing{
 				Enabled:      true,
 				DestOverride: []string{"http", "tls"},
 			},
-			Settings: InboundSettings{
+			Settings: &vmess.InboundSettings{
 				Auth:             "noauth",
 				Udp:              true,
 				AllowTransparent: false,
@@ -203,11 +139,11 @@ func getInbounds() []*Inbound {
 			Port:     10809,
 			Listen:   "0.0.0.0",
 			Protocol: "http",
-			Sniffing: Sniffing{
+			Sniffing: &vmess.Sniffing{
 				Enabled:      true,
 				DestOverride: []string{"http", "tls"},
 			},
-			Settings: InboundSettings{
+			Settings: &vmess.InboundSettings{
 				Udp:              false,
 				AllowTransparent: false,
 			},
