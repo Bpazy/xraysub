@@ -22,7 +22,7 @@ func TestParseShadowsocksUri(t *testing.T) {
 				Method:   "aes-256-gcm",
 				Password: "testpassword",
 				Hostname: "127.0.0.1",
-				Port:     "51507",
+				Port:     51507,
 			},
 			wantErr: false,
 		},

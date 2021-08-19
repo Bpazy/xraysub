@@ -1,4 +1,4 @@
-package vmess
+package xray
 
 type System struct {
 	StatsOutboundUplink   bool `json:"statsOutboundUplink"`

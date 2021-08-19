@@ -3,8 +3,8 @@ package cmd
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/Bpazy/xraysub/protocol"
-	"github.com/Bpazy/xraysub/vmess"
+	"github.com/Bpazy/xraysub/xray"
+	"github.com/Bpazy/xraysub/xray/protocol"
 	"github.com/go-resty/resty/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -52,32 +52,7 @@ var genCmd = &cobra.Command{
 			log.Printf("Shadowsocks cfg: %s", string(j))
 		}
 
-		xraycfg := &vmess.XrayConfig{
-			Policy: &vmess.Policy{
-				System: vmess.System{
-					StatsOutboundUplink:   true,
-					StatsOutboundDownlink: true,
-				},
-			},
-			Log: &vmess.Log{
-				Access:   "",
-				Error:    "",
-				Loglevel: "warning",
-			},
-			Inbounds:  getInbounds(),
-			Outbounds: getOutBounds(links),
-			Routing: &vmess.Routing{
-				DomainStrategy: "IPIfNonMatch",
-				DomainMatcher:  "linear",
-				Rules: []*vmess.Rule{
-					{
-						Type:        "field",
-						OutboundTag: "proxy",
-						Port:        "0-65535",
-					},
-				},
-			},
-		}
+		xraycfg := getXrayConfig(links)
 		cfg, err := json.Marshal(xraycfg)
 		cobra.CheckErr(err)
 		err = ioutil.WriteFile(genCmdCfg.GetOutputFile(), cfg, 0644)
@@ -85,16 +60,45 @@ var genCmd = &cobra.Command{
 	},
 }
 
-func getOutBounds(links []*Link) []*vmess.ShadowsocksOutbound {
-	var outbounds []*vmess.ShadowsocksOutbound
+func getXrayConfig(links []*Link) *xray.XrayConfig {
+	return &xray.XrayConfig{
+		Policy: &xray.Policy{
+			System: xray.System{
+				StatsOutboundUplink:   true,
+				StatsOutboundDownlink: true,
+			},
+		},
+		Log: &xray.Log{
+			Access:   "",
+			Error:    "",
+			Loglevel: "warning",
+		},
+		Inbounds:  getInbounds(),
+		Outbounds: getOutBounds(links),
+		Routing: &xray.Routing{
+			DomainStrategy: "IPIfNonMatch",
+			DomainMatcher:  "linear",
+			Rules: []*xray.Rule{
+				{
+					Type:        "field",
+					OutboundTag: "proxy",
+					Port:        "0-65535",
+				},
+			},
+		},
+	}
+}
+
+func getOutBounds(links []*Link) []*xray.ShadowsocksOutbound {
+	var outbounds []*xray.ShadowsocksOutbound
 	for _, link := range links {
-		outbounds = append(outbounds, &vmess.ShadowsocksOutbound{
-			BaseOutbound: vmess.BaseOutbound{
+		outbounds = append(outbounds, &xray.ShadowsocksOutbound{
+			BaseOutbound: xray.BaseOutbound{
 				Tag:      "proxy", // 应该测速后选择最合适的设置 tag 为 proxy
 				Protocol: "shadowsocks",
 			},
-			Settings: &vmess.OutboundSettings{
-				Servers: []*vmess.ShadowsocksServer{
+			Settings: &xray.OutboundSettings{
+				Servers: []*xray.ShadowsocksServer{
 					{
 						Address:  link.SsCfg.Hostname,
 						Method:   link.SsCfg.Method,
@@ -105,10 +109,10 @@ func getOutBounds(links []*Link) []*vmess.ShadowsocksOutbound {
 					},
 				},
 			},
-			StreamSettings: &vmess.StreamSettings{
+			StreamSettings: &xray.StreamSettings{
 				Network: "tcp",
 			},
-			Mux: &vmess.Mux{
+			Mux: &xray.Mux{
 				Enabled:     false,
 				Concurrency: -1,
 			},
@@ -117,18 +121,18 @@ func getOutBounds(links []*Link) []*vmess.ShadowsocksOutbound {
 	return outbounds
 }
 
-func getInbounds() []*vmess.Inbound {
-	return []*vmess.Inbound{
+func getInbounds() []*xray.Inbound {
+	return []*xray.Inbound{
 		{
 			Tag:      "socks",
 			Port:     10808,
 			Listen:   "0.0.0.0",
 			Protocol: "socks",
-			Sniffing: &vmess.Sniffing{
+			Sniffing: &xray.Sniffing{
 				Enabled:      true,
 				DestOverride: []string{"http", "tls"},
 			},
-			Settings: &vmess.InboundSettings{
+			Settings: &xray.InboundSettings{
 				Auth:             "noauth",
 				Udp:              true,
 				AllowTransparent: false,
@@ -139,11 +143,11 @@ func getInbounds() []*vmess.Inbound {
 			Port:     10809,
 			Listen:   "0.0.0.0",
 			Protocol: "http",
-			Sniffing: &vmess.Sniffing{
+			Sniffing: &xray.Sniffing{
 				Enabled:      true,
 				DestOverride: []string{"http", "tls"},
 			},
-			Settings: &vmess.InboundSettings{
+			Settings: &xray.InboundSettings{
 				Udp:              false,
 				AllowTransparent: false,
 			},
