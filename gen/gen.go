@@ -1,6 +1,7 @@
 package gen
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -10,9 +11,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // CmdConfig config for command: xraysub gen
@@ -53,20 +57,83 @@ func ping(cfg *xray.XrayConfig) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	j, err := json.Marshal(cfg)
-	cobra.CheckErr(err)
-	_, err = f.Write(j)
-	cobra.CheckErr(err)
+	// random port for speed test
+	rand.Seed(time.Now().UnixNano())
+	httpPort := rand.Intn(1000) + 40000
+	socksPort := rand.Intn(1000) + 40000
+	for _, inbound := range cfg.Inbounds {
+		if inbound.Protocol == "socks" {
+			inbound.Port = socksPort
+		}
+		if inbound.Protocol == "http" {
+			inbound.Port = httpPort
+		}
+	}
+	for _, outbound := range cfg.Outbounds {
+		outbound.Tag = "proxy"
+		j, err := json.Marshal(cfg)
+		if err != nil {
+			return "", err
+		}
+		_, err = f.Write(j)
+		if err != nil {
+			return "", err
+		}
 
-	cmd := exec.Command(Cfg.XrayCorePath, "-c", f.Name())
-	//cobra.CheckErr(cmd.Run())
+		cmd := exec.Command(Cfg.XrayCorePath, "-c", f.Name(), "-format=json")
+		if err != nil {
+			return "", fmt.Errorf("init xray-core error: %w", err)
+		}
+		stdoutBuf := new(bytes.Buffer)
+		stderrBuf := new(bytes.Buffer)
+		cmd.Stdout = stdoutBuf
+		cmd.Stderr = stderrBuf
+		err = cmd.Start()
+		if err != nil {
+			return "", fmt.Errorf("exec xray-core error: %w", err)
+		}
+		log.Infof("xray-core pid: %d", cmd.Process.Pid)
 
-	output, err := cmd.Output()
-	cobra.CheckErr(err)
+		client := resty.New()
+		proxy := "http://127.0.0.1:" + strconv.Itoa(httpPort)
+		client.SetProxy(proxy)
+		client.SetTimeout(5 * time.Second)
+		start := time.Now()
+		_, err = client.R().Get("https://www.google.com/generate_204")
+		if err != nil {
+			log.Infof("start xray-core error: (stdout: %s), (stderr: %s)", stdoutBuf.String(), stderrBuf.String())
+			log.Errorf("request failed by proxy %s: %+v", proxy, err)
+			err = killProcess(cmd)
+			if err != nil {
+				return "", err
+			}
+			continue
+		}
+		log.Infof("%s spent %dms", outbound.Settings.Servers[0].Address, time.Since(start).Milliseconds())
+		err = killProcess(cmd)
+		if err != nil {
+			return "", err
+		}
+	}
 
-	fmt.Println(string(output))
-
+	// rollback port
+	for _, inbound := range cfg.Inbounds {
+		if inbound.Protocol == "socks" {
+			inbound.Port = Cfg.XraySocksPort
+		}
+		if inbound.Protocol == "http" {
+			inbound.Port = Cfg.XrayHttpPort
+		}
+	}
 	return "", nil
+}
+
+func killProcess(cmd *exec.Cmd) error {
+	err := cmd.Process.Kill()
+	if err != nil {
+		return fmt.Errorf("kill xray-core error: %w", err)
+	}
+	return nil
 }
 
 // write xray-core's configuration
@@ -142,7 +209,7 @@ func getOutBounds(links []*Link) []*xray.ShadowsocksOutbound {
 	for _, link := range links {
 		outbounds = append(outbounds, &xray.ShadowsocksOutbound{
 			BaseOutbound: xray.BaseOutbound{
-				Tag:      "proxy", // 应该测速后选择最合适的设置 tag 为 proxy
+				Tag:      "", // 应该测速后选择最合适的设置 tag 为 proxy
 				Protocol: "shadowsocks",
 			},
 			Settings: &xray.OutboundSettings{
