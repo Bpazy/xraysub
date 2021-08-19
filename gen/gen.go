@@ -3,54 +3,75 @@ package gen
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"github.com/Bpazy/xraysub/xray"
 	"github.com/Bpazy/xraysub/xray/protocol"
 	"github.com/go-resty/resty/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"strings"
 )
 
 type CmdConfig struct {
-	Url        string
-	OutputFile string
+	Url          string // subscription link
+	OutputFile   string // xray-core's configuration path
+	Ping         bool   // speed test to choose the fastest node
+	XrayCorePath string // xray-core path, for some case such as: speed test
 }
 
 var Cfg = &CmdConfig{}
-
-func (c CmdConfig) GetOutputFile() string {
-	if c.OutputFile != "" {
-		return c.OutputFile
-	}
-	// default output file
-	return "./xray-config.json"
-}
 
 func NewGenCmdRun() func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		c := resty.New()
 		res, err := c.R().Get(Cfg.Url)
 		cobra.CheckErr(err)
-
 		dst, err := base64.StdEncoding.DecodeString(res.String())
 		cobra.CheckErr(err)
-
 		uris := strings.Split(strings.TrimSpace(string(dst)), "\n")
 		links := parseLinks(uris)
 
-		// pretty print
-		for _, cfg := range links {
-			j, _ := json.Marshal(cfg)
-			log.Printf("Shadowsocks cfg: %s", string(j))
+		xrayCfg := getXrayConfig(links)
+		if Cfg.Ping {
+			_, err := ping(xrayCfg)
+			cobra.CheckErr(err)
 		}
 
-		xraycfg := getXrayConfig(links)
-		cfg, err := json.Marshal(xraycfg)
-		cobra.CheckErr(err)
-		err = ioutil.WriteFile(Cfg.GetOutputFile(), cfg, 0644)
-		cobra.CheckErr(err)
+		writeFile(xrayCfg, Cfg.OutputFile)
 	}
+}
+
+// speed test, return the fastest node
+func ping(cfg *xray.XrayConfig) (string, error) {
+	f, err := ioutil.TempFile(os.TempDir(), "xray.config.json")
+	if err != nil {
+		return "", err
+	}
+	j, err := json.Marshal(cfg)
+	cobra.CheckErr(err)
+	_, err = f.Write(j)
+	cobra.CheckErr(err)
+
+	cmd := exec.Command(Cfg.XrayCorePath, "-c", f.Name())
+	//cobra.CheckErr(cmd.Run())
+
+	output, err := cmd.Output()
+	cobra.CheckErr(err)
+
+	fmt.Println(string(output))
+
+	return "", nil
+}
+
+// write xray-core's configuration
+func writeFile(cfg *xray.XrayConfig, path string) {
+	j, err := json.Marshal(cfg)
+	cobra.CheckErr(err)
+	err = ioutil.WriteFile(path, j, 0644)
+	cobra.CheckErr(err)
 }
 
 func parseLinks(uris []string) []*Link {
@@ -83,6 +104,7 @@ type Link struct {
 	SsCfg *protocol.ShadowsocksConfig
 }
 
+// build xray-core config
 func getXrayConfig(links []*Link) *xray.XrayConfig {
 	return &xray.XrayConfig{
 		Policy: &xray.Policy{

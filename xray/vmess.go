@@ -35,11 +35,6 @@ type Inbound struct {
 	Settings *InboundSettings `json:"settings"`
 }
 
-type BaseOutbound struct {
-	Tag      string `json:"tag"`
-	Protocol string `json:"protocol"`
-}
-
 type ShadowsocksServer struct {
 	Address  string `json:"address"`
 	Method   string `json:"method"`
@@ -60,6 +55,11 @@ type StreamSettings struct {
 type Mux struct {
 	Enabled     bool `json:"enabled"`
 	Concurrency int  `json:"concurrency"`
+}
+
+type BaseOutbound struct {
+	Tag      string `json:"tag"`
+	Protocol string `json:"protocol"`
 }
 
 type ShadowsocksOutbound struct {

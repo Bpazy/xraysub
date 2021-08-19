@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
+	"fmt"
 	"github.com/spf13/cobra"
 )
 
@@ -10,7 +10,7 @@ var versionCmd = &cobra.Command{
 	Short: "print the build information for xraysub",
 	Long:  `print the build information for xraysub`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Println(buildVer)
+		fmt.Println(buildVer)
 	},
 }
 
