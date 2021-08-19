@@ -53,10 +53,6 @@ func NewGenCmdRun() func(cmd *cobra.Command, args []string) {
 
 // speed test, return the fastest node
 func ping(cfg *xray.XrayConfig) (string, error) {
-	f, err := ioutil.TempFile(os.TempDir(), "xray.config.json")
-	if err != nil {
-		return "", err
-	}
 	// random port for speed test
 	rand.Seed(time.Now().UnixNano())
 	httpPort := rand.Intn(1000) + 40000
@@ -73,15 +69,23 @@ func ping(cfg *xray.XrayConfig) (string, error) {
 		outbound.Tag = "proxy"
 		j, err := json.Marshal(cfg)
 		if err != nil {
+			outbound.Tag = ""
 			return "", err
+		}
+		f, err := ioutil.TempFile(os.TempDir(), "xray.config.json")
+		if err != nil {
+			outbound.Tag = ""
+			return "", fmt.Errorf("create temp file 'xray.config.json' error: %w", err)
 		}
 		_, err = f.Write(j)
 		if err != nil {
-			return "", err
+			outbound.Tag = ""
+			return "", fmt.Errorf("write to temp file 'xray.config.json' error: %w", err)
 		}
 
 		cmd := exec.Command(Cfg.XrayCorePath, "-c", f.Name(), "-format=json")
 		if err != nil {
+			outbound.Tag = ""
 			return "", fmt.Errorf("init xray-core error: %w", err)
 		}
 		stdoutBuf := new(bytes.Buffer)
@@ -90,6 +94,7 @@ func ping(cfg *xray.XrayConfig) (string, error) {
 		cmd.Stderr = stderrBuf
 		err = cmd.Start()
 		if err != nil {
+			outbound.Tag = ""
 			return "", fmt.Errorf("exec xray-core error: %w", err)
 		}
 		log.Infof("xray-core pid: %d", cmd.Process.Pid)
@@ -101,15 +106,17 @@ func ping(cfg *xray.XrayConfig) (string, error) {
 		start := time.Now()
 		_, err = client.R().Get("https://www.google.com/generate_204")
 		if err != nil {
-			log.Infof("start xray-core error: (stdout: %s), (stderr: %s)", stdoutBuf.String(), stderrBuf.String())
-			log.Errorf("request failed by proxy %s: %+v", proxy, err)
+			log.Errorf("request failed by proxy %s: %+v, xray-core's stdout: %s, xray-core's stderr: %s:", proxy, err, stdoutBuf.String(), stderrBuf.String())
 			err = killProcess(cmd)
 			if err != nil {
+				outbound.Tag = ""
 				return "", err
 			}
+			outbound.Tag = ""
 			continue
 		}
 		log.Infof("%s spent %dms", outbound.Settings.Servers[0].Address, time.Since(start).Milliseconds())
+		outbound.Tag = ""
 		err = killProcess(cmd)
 		if err != nil {
 			return "", err

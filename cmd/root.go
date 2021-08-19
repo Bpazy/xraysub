@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,12 @@ var (
 K E E P   R I D I N G   /   N E V E R   L O O K   B A C K`,
 	}
 )
+
+func init() {
+	logrus.SetFormatter(&logrus.TextFormatter{
+		DisableQuote: true,
+	})
+}
 
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
