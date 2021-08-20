@@ -12,7 +12,7 @@ A powerful cross-platform CLI client for Xray subscription. 跨平台 Xray 命�
 
 ## Preview
 ```
-$ ./xraysub.exe gen --url=https://comfysub.example.com --xray D:/MyPrograms/xray-core/xray.exe --xray-socks-port 1080 --xray-http-port 1081
+$ ./xraysub.exe gen --url=https://comfysub.example.com
 Requesting subscriptions from https://comfysub.example.com
 Start detecting server's latency
         Detecting 100% [========================================]    6s:0s]s]
@@ -24,7 +24,7 @@ The xray-core's configuration file is saved ./xray-config.json
 Suppose the `xray-core.exe` and `xraysub.exe` are in the current directory.
 1. First run `xraysub` to get xray-core's configuration file.
 ```
-$ ./xraysub.exe gen --url=https://comfysub.example.com --xray-socks-port 1080 --xray-http-port 1081
+$ ./xraysub.exe gen --url=https://comfysub.example.com
 ```
 2. Run xray-core
 ```
