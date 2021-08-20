@@ -10,7 +10,7 @@ func CheckErr(err error) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintln(os.Stderr, "Error: ", err)
+	_, _ = fmt.Fprintln(os.Stderr, "Error: ", err)
 	logrus.Errorf("Error: %+v", err)
 	os.Exit(1)
 }

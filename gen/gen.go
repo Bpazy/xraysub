@@ -9,6 +9,7 @@ import (
 	"github.com/Bpazy/xraysub/xray"
 	"github.com/Bpazy/xraysub/xray/protocol"
 	"github.com/go-resty/resty/v2"
+	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -61,24 +62,26 @@ var xrayCoreProcess *os.Process
 
 func init() {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGKILL)
 
 	go func() {
 		s := <-c
-		fmt.Println("Got signal:", s)
+		log.Infof("Got signal: %s", s.String())
 		killXrayCoreProcess()
+		os.Exit(1)
 	}()
 }
 
 func killXrayCoreProcess() {
 	if xrayCoreProcess != nil {
-		_ = xrayCoreProcess.Kill()
+		log.Infof("kill xray-core, PID: %d", xrayCoreProcess.Pid)
+		util.CheckErr(xrayCoreProcess.Kill())
 	}
 }
 
 // speed test, return the fastest node
 func ping(xCfg *xray.Config) error {
-	fmt.Println("Ping test processing")
+	fmt.Println("Start detecting node delay")
 	if len(xCfg.Outbounds) == 0 {
 		return errors.New("outbounds empty")
 	}
@@ -113,7 +116,7 @@ func ping(xCfg *xray.Config) error {
 	if err != nil {
 		return fmt.Errorf("create xray-core.log error: %w", err)
 	}
-	defer xlf.Close()
+	defer util.CheckErr(xlf.Close())
 	cmd.Stdout = xlf
 	cmd.Stderr = xlf
 	if err = cmd.Start(); err != nil {
@@ -121,20 +124,32 @@ func ping(xCfg *xray.Config) error {
 	}
 	log.Infof("xray-core PID: %d", cmd.Process.Pid)
 	xrayCoreProcess = cmd.Process
+	defer killXrayCoreProcess()
+
+	// start rendering progress bar
+	bar := progressbar.NewOptions(len(xCfg.Outbounds),
+		progressbar.OptionSetDescription("\tDetecting"),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "=",
+			SaucerHead:    ">",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
 
 	wg := new(sync.WaitGroup)
 	outboundChan := make(chan *xray.ShadowsocksOutbound)
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		go pingWorker(outboundChan, wg)
+		go pingWorker(outboundChan, wg, bar)
 	}
 	for _, outbound := range xCfg.Outbounds {
 		outboundChan <- outbound
 	}
 	close(outboundChan)
 	wg.Wait()
-
-	killXrayCoreProcess()
+	fmt.Println()
 
 	// filter fasted outbound
 	var fastedOutbound *xray.ShadowsocksOutbound
@@ -173,7 +188,7 @@ func appendXrayCoreLogFile() (*os.File, error) {
 	return f, err
 }
 
-func pingWorker(oc chan *xray.ShadowsocksOutbound, wg *sync.WaitGroup) {
+func pingWorker(oc chan *xray.ShadowsocksOutbound, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
 	defer wg.Done()
 
 	for outbound := range oc {
@@ -191,6 +206,7 @@ func pingWorker(oc chan *xray.ShadowsocksOutbound, wg *sync.WaitGroup) {
 			s := outbound.Settings.Servers[0]
 			log.Infof("%s:%d cost %dms", s.Address, s.Port, outbound.PingDelay.Milliseconds())
 		}
+		_ = bar.Add(1)
 	}
 }
 
