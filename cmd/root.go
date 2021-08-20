@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"github.com/Bpazy/xraysub/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 var (
@@ -22,8 +24,20 @@ func init() {
 	logrus.SetFormatter(&logrus.TextFormatter{
 		DisableQuote: true,
 	})
+
+	file, err := getLogFile()
+	util.CheckErr(err)
+	logrus.SetOutput(file)
+}
+
+func getLogFile() (*os.File, error) {
+	f, err := os.OpenFile("xraysub.log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return nil, err
+	}
+	return f, err
 }
 
 func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
+	util.CheckErr(rootCmd.Execute())
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/Bpazy/xraysub/gen"
+	"github.com/Bpazy/xraysub/util"
 	"github.com/spf13/cobra"
 	"runtime"
 )
@@ -27,5 +28,5 @@ func init() {
 	genCmd.Flags().StringVarP(&gen.Cfg.XrayCorePath, "xray", "", defaultXrayPath, "speed test to choose the fastest node")
 	genCmd.Flags().IntVarP(&gen.Cfg.XraySocksPort, "xray-socks-port", "", 1080, "xray-core listen socks port")
 	genCmd.Flags().IntVarP(&gen.Cfg.XrayHttpPort, "xray-http-port", "", 1081, "xray-core listen http port")
-	cobra.CheckErr(genCmd.MarkFlagRequired(cUrl))
+	util.CheckErr(genCmd.MarkFlagRequired(cUrl))
 }

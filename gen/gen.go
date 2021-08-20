@@ -3,7 +3,9 @@ package gen
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/Bpazy/xraysub/util"
 	"github.com/Bpazy/xraysub/xray"
 	"github.com/Bpazy/xraysub/xray/protocol"
 	"github.com/go-resty/resty/v2"
@@ -36,17 +38,19 @@ var Cfg = &CmdConfig{}
 func NewGenCmdRun() func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		c := resty.New()
+		fmt.Printf("Requesting subscriptions from %s\n", Cfg.Url)
+		c.SetTimeout(5 * time.Second)
 		res, err := c.R().Get(Cfg.Url)
-		cobra.CheckErr(err)
+		util.CheckErr(err)
 		dst, err := base64.StdEncoding.DecodeString(res.String())
-		cobra.CheckErr(err)
+		util.CheckErr(err)
 		uris := strings.Split(strings.TrimSpace(string(dst)), "\n")
 		links := parseLinks(uris)
 
 		xrayCfg := getXrayConfig(links)
 		if Cfg.Ping {
-			_, err := ping(xrayCfg)
-			cobra.CheckErr(err)
+			err := ping(xrayCfg)
+			util.CheckErr(err)
 		}
 
 		writeFile(xrayCfg, Cfg.OutputFile)
@@ -73,7 +77,11 @@ func killXrayCoreProcess() {
 }
 
 // speed test, return the fastest node
-func ping(xCfg *xray.Config) (string, error) {
+func ping(xCfg *xray.Config) error {
+	fmt.Println("Ping test processing")
+	if len(xCfg.Outbounds) == 0 {
+		return errors.New("outbounds empty")
+	}
 	// 根据 outbounds 生成 inbounds 和 routing rules
 	var inbounds []*xray.Inbound
 	var routingRules []*xray.Rule
@@ -93,44 +101,39 @@ func ping(xCfg *xray.Config) (string, error) {
 
 	f, err := writeTempConfig(xCfg)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	cmd := exec.Command(Cfg.XrayCorePath, "-c", f.Name(), "-format=json")
 	if err != nil {
-		return "", fmt.Errorf("init xray-core command error: %w", err)
+		return fmt.Errorf("init xray-core command error: %w", err)
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Start()
+	xlf, err := appendXrayCoreLogFile()
 	if err != nil {
-		return "", fmt.Errorf("exec xray-core error: %w", err)
+		return fmt.Errorf("create xray-core.log error: %w", err)
+	}
+	defer xlf.Close()
+	cmd.Stdout = xlf
+	cmd.Stderr = xlf
+	if err = cmd.Start(); err != nil {
+		return fmt.Errorf("exec xray-core error: %w", err)
 	}
 	log.Infof("xray-core PID: %d", cmd.Process.Pid)
 	xrayCoreProcess = cmd.Process
 
-	wg := sync.WaitGroup{}
-	for _, outbound := range xCfg.Outbounds {
+	wg := new(sync.WaitGroup)
+	outboundChan := make(chan *xray.ShadowsocksOutbound)
+	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		outbound := outbound
-		go func() {
-			client := resty.New()
-			proxy := "http://127.0.0.1:" + strconv.Itoa(outbound.Inbound.Port)
-			client.SetProxy(proxy)
-			client.SetTimeout(5 * time.Second)
-			start := time.Now()
-			_, err = client.R().Get("https://www.google.com/generate_204")
-			if err != nil {
-				log.Errorf("request failed by proxy %s: %+v", proxy, err)
-			} else {
-				since := time.Since(start)
-				outbound.PingDelay = &since
-				log.Infof("%s spent %dms", outbound.Settings.Servers[0].Address, outbound.PingDelay.Milliseconds())
-			}
-		}()
+		go pingWorker(outboundChan, wg)
 	}
+	for _, outbound := range xCfg.Outbounds {
+		outboundChan <- outbound
+	}
+	close(outboundChan)
 	wg.Wait()
+
 	killXrayCoreProcess()
 
 	// filter fasted outbound
@@ -145,6 +148,12 @@ func ping(xCfg *xray.Config) (string, error) {
 			fastedOutbound = outbound
 		}
 	}
+	if fastedOutbound == nil {
+		fmt.Println("All nodes ping test failed")
+	} else {
+		s := fastedOutbound.Settings.Servers[0]
+		fmt.Printf("Got fastest node: %s:%d\n", s.Address, s.Port)
+	}
 	xCfg.Routing.Rules = []*xray.Rule{
 		{
 			Type:        "field",
@@ -153,19 +162,51 @@ func ping(xCfg *xray.Config) (string, error) {
 		},
 	}
 
-	return "", nil
+	return nil
+}
+
+func appendXrayCoreLogFile() (*os.File, error) {
+	f, err := os.OpenFile("xray-core.log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return nil, err
+	}
+	return f, err
+}
+
+func pingWorker(oc chan *xray.ShadowsocksOutbound, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for outbound := range oc {
+		client := resty.New()
+		proxy := "http://127.0.0.1:" + strconv.Itoa(outbound.Inbound.Port)
+		client.SetProxy(proxy)
+		client.SetTimeout(5 * time.Second)
+		start := time.Now()
+		_, err := client.R().Get("https://www.google.com/generate_204")
+		if err != nil {
+			log.Errorf("request failed by proxy %s: %+v", proxy, err)
+		} else {
+			since := time.Since(start)
+			outbound.PingDelay = &since
+			s := outbound.Settings.Servers[0]
+			log.Infof("%s:%d cost %dms", s.Address, s.Port, outbound.PingDelay.Milliseconds())
+		}
+	}
 }
 
 func randomInboundPorts(outbounds []*xray.ShadowsocksOutbound) []int {
 	var ports []int
 	offset := 0
 	for range outbounds {
-		p := 40000 + offset
-		listenable := portListenable(p)
-		if listenable {
-			ports = append(ports, p)
+		for {
+			p := 40000 + offset
+			offset++
+			listenable := portListenable(p)
+			if listenable {
+				ports = append(ports, p)
+				break
+			}
 		}
-		offset++
 	}
 	return ports
 }
@@ -224,9 +265,10 @@ func getInboundFromOutbound(i int, port int) *xray.Inbound {
 // write xray-core's configuration
 func writeFile(cfg *xray.Config, path string) {
 	j, err := json.Marshal(cfg)
-	cobra.CheckErr(err)
+	util.CheckErr(err)
 	err = ioutil.WriteFile(path, j, 0644)
-	cobra.CheckErr(err)
+	fmt.Printf("The xray-core's configuration file is saved %s\n", path)
+	util.CheckErr(err)
 }
 
 func parseLinks(uris []string) []*Link {
