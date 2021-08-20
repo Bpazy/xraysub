@@ -1,6 +1,7 @@
 package xray
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -67,6 +68,7 @@ type BaseOutbound struct {
 
 	Latency *time.Duration `json:"-"` // server's latency
 	Inbound *Inbound       `json:"-"` // bound inbound for detecting latency
+	Comment string         `json:"-"`
 }
 
 type ShadowsocksOutbound struct {
@@ -74,6 +76,15 @@ type ShadowsocksOutbound struct {
 	Settings       *OutboundSettings `json:"settings"`
 	StreamSettings *StreamSettings   `json:"streamSettings"`
 	Mux            *Mux              `json:"mux"`
+}
+
+func (o ShadowsocksOutbound) PrettyComment() string {
+	s := o.Settings.Servers[0]
+	addr := fmt.Sprintf("%s:%d", s.Address, s.Port)
+	if o.Comment != "" {
+		return fmt.Sprintf("%s(%s)", o.Comment, addr)
+	}
+	return addr
 }
 
 type Config struct {

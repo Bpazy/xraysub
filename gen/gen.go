@@ -191,8 +191,7 @@ func getFastedOutbound(xCfg *xray.Config) (*xray.ShadowsocksOutbound, error) {
 	if fastedOutbound == nil {
 		return nil, errors.New("all nodes detectLatency test failed")
 	} else {
-		s := fastedOutbound.Settings.Servers[0]
-		fmt.Printf("Got fastest node: %s:%d\n", s.Address, s.Port)
+		fmt.Printf("Got fastest node \"%s\" with latency %dms\n", fastedOutbound.PrettyComment(), fastedOutbound.Latency.Milliseconds())
 	}
 	return fastedOutbound, nil
 }
@@ -397,6 +396,7 @@ func getOutBounds(links []*Link) []*xray.ShadowsocksOutbound {
 			BaseOutbound: xray.BaseOutbound{
 				Tag:      "outbound" + strconv.Itoa(i), // 应该测速后选择最合适的设置 tag 为 proxy
 				Protocol: "shadowsocks",
+				Comment:  link.SsCfg.Comment,
 			},
 			Settings: &xray.OutboundSettings{
 				Servers: []*xray.ShadowsocksServer{
