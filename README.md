@@ -11,8 +11,8 @@ A powerful cross-platform CLI client for Xray subscription. 跨平台 Xray 命�
 </div>
 
 ## Preview
-```powershell
-./xraysub.exe gen --url=https://comfysub.example.com --xray D:/MyPrograms/xray-core/xray.exe --xray-socks-port 1080 --xray-http-port 1081
+```
+$ ./xraysub.exe gen --url=https://comfysub.example.com --xray D:/MyPrograms/xray-core/xray.exe --xray-socks-port 1080 --xray-http-port 1081
 Requesting subscriptions from https://comfysub.example.com
 Start detecting server's latency
         Detecting 100% [========================================]    6s:0s]s]
@@ -23,21 +23,21 @@ The xray-core's configuration file is saved ./xray-config.json
 ## Quick Start
 Suppose the `xray-core.exe` and `xraysub.exe` are in the current directory.
 1. First run `xraysub` to get xray-core's configuration file.
-```powershell
-./xraysub.exe gen --url=https://comfysub.example.com --xray-socks-port 1080 --xray-http-port 1081
+```
+$ ./xraysub.exe gen --url=https://comfysub.example.com --xray-socks-port 1080 --xray-http-port 1081
 ```
 2. Run xray-core
 ```
-./xray-core.exe -c xray-config.json
+$ ./xray-core.exe -c xray-config.json
 ```
 3. Use the proxy
 ```
-curl -x HTTPS_PROXY://127.0.0.1:1081 https://www.google.com
+$ curl -x HTTPS_PROXY://127.0.0.1:1081 https://www.google.com
 ```
 
 ## Param
 ```
-PS D:\workspace\Bpazy\xraysub> .\xraysub.exe help gen
+$ .\xraysub.exe help gen
 generate xray configuration file from subscription url
 
 Usage:
