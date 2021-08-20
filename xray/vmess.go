@@ -65,8 +65,8 @@ type BaseOutbound struct {
 	Tag      string `json:"tag"`
 	Protocol string `json:"protocol"`
 
-	PingDelay *time.Duration // 测速延迟
-	Inbound   *Inbound
+	Latency *time.Duration `json:"-"` // server's latency
+	Inbound *Inbound       `json:"-"` // bound inbound for detecting latency
 }
 
 type ShadowsocksOutbound struct {

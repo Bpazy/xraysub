@@ -26,9 +26,11 @@ import (
 
 // CmdConfig config for command: xraysub gen
 type CmdConfig struct {
-	Url           string // subscription link
-	OutputFile    string // xray-core's configuration path
-	Ping          bool   // speed test to choose the fastest node
+	Url                string // subscription link
+	OutputFile         string // xray-core's configuration path
+	DetectLatency      bool   // detect latency to select the best server
+	DetectThreadNumber int    // detect latency threads number
+
 	XrayCorePath  string // xray-core path, for some case such as: speed test
 	XraySocksPort int    // xray-core listen socks port
 	XrayHttpPort  int    // xray-core listen http port
@@ -49,8 +51,8 @@ func NewGenCmdRun() func(cmd *cobra.Command, args []string) {
 		links := parseLinks(uris)
 
 		xrayCfg := getXrayConfig(links)
-		if Cfg.Ping {
-			err := ping(xrayCfg)
+		if Cfg.DetectLatency {
+			err := detectLatency(xrayCfg)
 			util.CheckErr(err)
 		}
 
@@ -80,8 +82,8 @@ func killXrayCoreProcess() {
 }
 
 // speed test, return the fastest node
-func ping(xCfg *xray.Config) error {
-	fmt.Println("Start detecting node delay")
+func detectLatency(xCfg *xray.Config) error {
+	fmt.Println("Start detecting servers latency")
 	if len(xCfg.Outbounds) == 0 {
 		return errors.New("outbounds empty")
 	}
@@ -127,20 +129,11 @@ func ping(xCfg *xray.Config) error {
 	defer killXrayCoreProcess()
 
 	// start rendering progress bar
-	bar := progressbar.NewOptions(len(xCfg.Outbounds),
-		progressbar.OptionSetDescription("\tDetecting"),
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "=",
-			SaucerHead:    ">",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}))
+	bar := initProgressBar(xCfg)
 
 	wg := new(sync.WaitGroup)
 	outboundChan := make(chan *xray.ShadowsocksOutbound)
-	for i := 0; i < 5; i++ {
+	for i := 0; i < Cfg.DetectThreadNumber; i++ {
 		wg.Add(1)
 		go pingWorker(outboundChan, wg, bar)
 	}
@@ -154,17 +147,17 @@ func ping(xCfg *xray.Config) error {
 	// filter fasted outbound
 	var fastedOutbound *xray.ShadowsocksOutbound
 	for _, outbound := range xCfg.Outbounds {
-		if outbound.PingDelay == nil {
+		if outbound.Latency == nil {
 			continue
 		}
 		if fastedOutbound == nil {
 			fastedOutbound = outbound
-		} else if fastedOutbound.PingDelay.Milliseconds() > outbound.PingDelay.Milliseconds() {
+		} else if fastedOutbound.Latency.Milliseconds() > outbound.Latency.Milliseconds() {
 			fastedOutbound = outbound
 		}
 	}
 	if fastedOutbound == nil {
-		fmt.Println("All nodes ping test failed")
+		fmt.Println("All nodes detectLatency test failed")
 	} else {
 		s := fastedOutbound.Settings.Servers[0]
 		fmt.Printf("Got fastest node: %s:%d\n", s.Address, s.Port)
@@ -178,6 +171,19 @@ func ping(xCfg *xray.Config) error {
 	}
 
 	return nil
+}
+
+func initProgressBar(xCfg *xray.Config) *progressbar.ProgressBar {
+	return progressbar.NewOptions(len(xCfg.Outbounds),
+		progressbar.OptionSetDescription("\tDetecting"),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "=",
+			SaucerHead:    ">",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}))
 }
 
 func appendXrayCoreLogFile() (*os.File, error) {
@@ -202,9 +208,9 @@ func pingWorker(oc chan *xray.ShadowsocksOutbound, wg *sync.WaitGroup, bar *prog
 			log.Errorf("request failed by proxy %s: %+v", proxy, err)
 		} else {
 			since := time.Since(start)
-			outbound.PingDelay = &since
+			outbound.Latency = &since
 			s := outbound.Settings.Servers[0]
-			log.Infof("%s:%d cost %dms", s.Address, s.Port, outbound.PingDelay.Milliseconds())
+			log.Infof("%s:%d cost %dms", s.Address, s.Port, outbound.Latency.Milliseconds())
 		}
 		_ = bar.Add(1)
 	}
