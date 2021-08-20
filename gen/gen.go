@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Bpazy/xraysub/constants"
 	"github.com/Bpazy/xraysub/util"
 	"github.com/Bpazy/xraysub/xray"
 	"github.com/Bpazy/xraysub/xray/protocol"
@@ -314,7 +315,7 @@ func getInboundFromOutbound(i int, port int) *xray.Inbound {
 	return &xray.Inbound{
 		Tag:      "inbound" + strconv.Itoa(i),
 		Port:     port,
-		Listen:   "0.0.0.0",
+		Listen:   constants.ListenAllAddress,
 		Protocol: "http",
 		Sniffing: &xray.Sniffing{
 			Enabled:      true,
@@ -427,7 +428,7 @@ func getInbounds() []*xray.Inbound {
 		{
 			Tag:      "socks",
 			Port:     Cfg.XraySocksPort,
-			Listen:   "0.0.0.0",
+			Listen:   constants.ListenAllAddress,
 			Protocol: "socks",
 			Sniffing: &xray.Sniffing{
 				Enabled:      true,
@@ -442,7 +443,7 @@ func getInbounds() []*xray.Inbound {
 		{
 			Tag:      "http",
 			Port:     Cfg.XrayHttpPort,
-			Listen:   "0.0.0.0",
+			Listen:   constants.ListenAllAddress,
 			Protocol: "http",
 			Sniffing: &xray.Sniffing{
 				Enabled:      true,
