@@ -27,7 +27,7 @@ jobs:
           fi
 
       - name: Build the artifacts
-        run: make
+        run: make NAME=xraysub
 
       - name: Upload the artifacts
         uses: skx/github-action-publish-binaries@master

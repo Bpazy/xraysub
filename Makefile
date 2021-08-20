@@ -1,11 +1,11 @@
 BINDIR=bin
 VERSION=$(shell git describe --tags || echo "unknownversion")
 ifdef NAME
-	FULLNAME=$(NAME)
+	FULLNAME=$(NAME)-$@
 else
 	FULLNAME=xraysub-$@-$(VERSION)
 endif
-LDFLAGS="-s -w -X github.com/Bpazy/xraysub.buildVer=${VERSION}"
+LDFLAGS="-s -w -X github.com/Bpazy/xraysub/cmd.buildVer=${VERSION}"
 GOBUILD=go build -ldflags=${LDFLAGS}
 CMDPATH=.
 export GOPROXY=https://mirrors.aliyun.com/goproxy/
