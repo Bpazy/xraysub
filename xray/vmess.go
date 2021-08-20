@@ -1,5 +1,9 @@
 package xray
 
+import (
+	"time"
+)
+
 type System struct {
 	StatsOutboundUplink   bool `json:"statsOutboundUplink"`
 	StatsOutboundDownlink bool `json:"statsOutboundDownlink"`
@@ -60,6 +64,9 @@ type Mux struct {
 type BaseOutbound struct {
 	Tag      string `json:"tag"`
 	Protocol string `json:"protocol"`
+
+	PingDelay *time.Duration // 测速延迟
+	Inbound   *Inbound
 }
 
 type ShadowsocksOutbound struct {
@@ -69,7 +76,7 @@ type ShadowsocksOutbound struct {
 	Mux            *Mux              `json:"mux"`
 }
 
-type XrayConfig struct {
+type Config struct {
 	Policy    *Policy                `json:"policy"`
 	Log       *Log                   `json:"log"`
 	Inbounds  []*Inbound             `json:"inbounds"`
