@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+bin
 
 # Test binary, built with `go test -c`
 *.test
@@ -16,3 +17,9 @@
 
 # IDEA
 .idea
+
+# Dev
+xray-config.json
+xray-core.log
+xraysub.log
+xraysub.exe
