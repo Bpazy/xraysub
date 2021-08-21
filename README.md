@@ -20,7 +20,12 @@ The xray-core's configuration file is saved ./xray-config.json
 ```
 
 ## Quick Start
-Suppose the `xray-core.exe` and `xraysub.exe` are in the current directory.
+Suppose the `xray.exe` and `xraysub.exe` are in the current directory.
+```
+.
+├── xray.exe
+└── xraysub.exe
+```
 1. First run `xraysub` to get xray-core's configuration file.
 ```
 $ ./xraysub.exe gen --url=https://comfysub.example.com
