@@ -122,7 +122,7 @@ func detectLatency(xCfg *xray.Config) error {
 	if err != nil {
 		return fmt.Errorf("create xray-core.log error: %w", err)
 	}
-	defer xlf.Close()
+	defer util.Closeq(xlf)
 	buf := new(bytes.Buffer)
 	w := io.MultiWriter(xlf, buf)
 
@@ -333,8 +333,8 @@ func writeFile(cfg *xray.Config, path string) {
 	j, err := json.Marshal(cfg)
 	util.CheckErr(err)
 	err = ioutil.WriteFile(path, j, 0644)
-	fmt.Printf("The xray-core's configuration file is saved %s\n", path)
 	util.CheckErr(err)
+	fmt.Printf("The xray-core's configuration file is saved %s\n", path)
 }
 
 func parseLinks(uris []string) []*Link {

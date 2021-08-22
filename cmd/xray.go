@@ -1,0 +1,24 @@
+package cmd
+
+import (
+	"github.com/Bpazy/xraysub/xray"
+	"github.com/spf13/cobra"
+)
+
+var xrayCmd = &cobra.Command{
+	Use:   "xray",
+	Short: "Xray-core related commands",
+	Long:  "Xray-core related commands",
+}
+
+var downloadCmd = &cobra.Command{
+	Use:   "download",
+	Short: "download xray-core",
+	Long:  "download xray-core",
+	Run:   xray.NewXrayDownloadCmdRun(),
+}
+
+func init() {
+	xrayCmd.AddCommand(downloadCmd)
+	rootCmd.AddCommand(xrayCmd)
+}
