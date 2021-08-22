@@ -15,7 +15,7 @@ var downloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "download xray-core",
 	Long:  "download xray-core",
-	Run:   xray.NewXrayDownloadCmdRun(),
+	RunE:  xray.NewXrayDownloadCmdRun(),
 }
 
 func init() {

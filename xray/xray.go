@@ -1,6 +1,7 @@
 package xray
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -109,32 +111,62 @@ type GithubLatestRelease struct {
 	Reactions       *Reactions `json:"reactions"`
 }
 
-func NewXrayDownloadCmdRun() func(cmd *cobra.Command, args []string) {
-	return func(cmd *cobra.Command, args []string) {
+func NewXrayDownloadCmdRun() func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
 		downloadUrl, fileName, err := getDownloadUrl()
-		if err != nil {
-			util.CheckErr(err)
-		}
+		util.CheckErr(err)
 
-		download(err, downloadUrl, fileName)
+		fp, err := download(err, downloadUrl, fileName)
+		util.CheckErr(err)
+
+		fmt.Println("Unzipping files")
+		return unzip(err, fp)
 	}
 }
 
-func download(err error, downloadUrl string, fileName string) {
-	client := resty.New()
-	client.SetProxy("http://127.0.0.1:10809")
-	client.SetTimeout(30 * time.Second)
-	res, err := client.R().
-		SetDoNotParseResponse(true).
-		Get(downloadUrl)
+func unzip(err error, fp string) error {
+	r, err := zip.OpenReader(fp)
 	if err != nil {
-		util.CheckErr(fmt.Errorf("download error: %w", err))
+		return fmt.Errorf("open zip error: %w", err)
+	}
+	defer r.Close()
+
+	var xf = new(zip.File)
+	for _, f := range r.File {
+		if strings.Contains(f.Name, "xray") {
+			xf = f
+			break
+		}
+	}
+	open, err := xf.Open()
+	if err != nil {
+		return fmt.Errorf("open zip file error: %w", err)
+	}
+	defer open.Close()
+
+	f, err := os.OpenFile(util.GetDefaultXrayPath(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return fmt.Errorf("create xray-core file error: %w", err)
+	}
+	defer f.Close()
+	_, err = io.Copy(f, open)
+	if err != nil {
+		return fmt.Errorf("unzip: io copy error: %w", err)
+	}
+	return nil
+}
+
+func download(err error, downloadUrl string, fileName string) (string, error) {
+	client := resty.New()
+	res, err := client.R().SetDoNotParseResponse(true).Get(downloadUrl)
+	if err != nil {
+		return "", fmt.Errorf("download error: %w", err)
 	}
 	defer util.Closeq(res.RawResponse.Body)
 
 	outFile, err := os.Create(filepath.Clean(fileName))
 	if err != nil {
-		util.CheckErr(fmt.Errorf("create file error: %w", err))
+		return "", fmt.Errorf("create file error: %w", err)
 	}
 	defer util.Closeq(outFile)
 
@@ -142,11 +174,12 @@ func download(err error, downloadUrl string, fileName string) {
 	// io.Copy reads maximum 32kb size, it is perfect for large file download too
 	_, err = io.Copy(io.MultiWriter(outFile, bar), res.RawResponse.Body)
 	if err != nil {
-		util.CheckErr(fmt.Errorf("io copy error: %w", err))
+		return "", fmt.Errorf("io copy error: %w", err)
 	}
 
 	fmt.Println()
 	fmt.Printf("The xray-core is saved %s\n", fileName)
+	return outFile.Name(), nil
 }
 
 func getDownloadProgressBar(maxLength int64) *progressbar.ProgressBar {
