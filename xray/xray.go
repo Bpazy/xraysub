@@ -111,6 +111,13 @@ type GithubLatestRelease struct {
 	Reactions       *Reactions `json:"reactions"`
 }
 
+// DownloadConfig config for command: xraysub gen
+type DownloadConfig struct {
+	GhProxy string // gh-proxy address
+}
+
+var Cfg = &DownloadConfig{}
+
 func NewXrayDownloadCmdRun() func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		downloadUrl, fileName, err := getDownloadUrl()
@@ -158,6 +165,9 @@ func unzip(err error, fp string) error {
 
 func download(err error, downloadUrl string, fileName string) (string, error) {
 	client := resty.New()
+	if Cfg.GhProxy != "" {
+		downloadUrl = Cfg.GhProxy + downloadUrl
+	}
 	res, err := client.R().SetDoNotParseResponse(true).Get(downloadUrl)
 	if err != nil {
 		return "", fmt.Errorf("download error: %w", err)

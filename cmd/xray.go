@@ -21,4 +21,6 @@ var downloadCmd = &cobra.Command{
 func init() {
 	xrayCmd.AddCommand(downloadCmd)
 	rootCmd.AddCommand(xrayCmd)
+
+	downloadCmd.Flags().StringVarP(&xray.Cfg.GhProxy, "gh-proxy", "", "", "github proxy: https://github.com/hunshcn/gh-proxy")
 }
