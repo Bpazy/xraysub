@@ -19,7 +19,14 @@ jobs:
       - name: Build the artifacts
         run: make NAME=xraysub
 
+      - name: Build Changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           files: 'bin/*'
+          body: ${{ build_changelog.outputs.changelog }}
