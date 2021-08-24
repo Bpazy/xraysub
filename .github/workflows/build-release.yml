@@ -29,4 +29,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: 'bin/*'
-          body: ${{ build_changelog.outputs.changelog }}
+          body: ${{ steps.build_changelog.outputs.changelog }}
