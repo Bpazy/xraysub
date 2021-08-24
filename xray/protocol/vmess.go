@@ -7,19 +7,19 @@ import (
 )
 
 type VmessConfig struct {
-	V    string `json:"v"`
-	Ps   string `json:"ps"`
-	Add  string `json:"add"`
-	Port string `json:"port"`
-	Id   string `json:"id"`
-	Aid  string `json:"aid"`
-	Scy  string `json:"scy"`
-	Net  string `json:"net"`
-	Type string `json:"type"`
-	Host string `json:"host"`
-	Path string `json:"path"`
-	Tls  string `json:"tls"`
-	Sni  string `json:"sni"`
+	V    string      `json:"v"`
+	Ps   string      `json:"ps"`
+	Add  string      `json:"add"`
+	Port json.Number `json:"port"`
+	Id   string      `json:"id"`
+	Aid  json.Number `json:"aid"`
+	Scy  string      `json:"scy"`
+	Net  string      `json:"net"`
+	Type string      `json:"type"`
+	Host string      `json:"host"`
+	Path string      `json:"path"`
+	Tls  string      `json:"tls"`
+	Sni  string      `json:"sni"`
 }
 
 var vmessUriRe = regexp.MustCompile(`(?m)vmess://(.+)`)

@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -22,9 +23,9 @@ func TestParseVmessUri(t *testing.T) {
 				V:    "2",
 				Ps:   " 备注或别名  ",
 				Add:  "111.111.111.111",
-				Port: "32000",
+				Port: json.Number("32000"),
 				Id:   "1386f85e-657b-4d6e-9d56-78badb75e1fd",
-				Aid:  "100",
+				Aid:  json.Number("100"),
 				Scy:  "zero",
 				Net:  "tcp",
 				Type: "none",
