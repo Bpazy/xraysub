@@ -32,6 +32,7 @@ type CmdConfig struct {
 	Url                string // subscription link
 	OutputFile         string // xray-core's configuration path
 	DetectLatency      bool   // detect latency to select the best server
+	DetectUrl          string // detect latency url
 	DetectThreadNumber int    // detect latency threads number
 
 	XrayCorePath  string // xray-core path, for some case such as: speed test
@@ -48,11 +49,18 @@ func NewGenCmdRun() func(cmd *cobra.Command, args []string) {
 		c.SetTimeout(5 * time.Second)
 		res, err := c.R().Get(Cfg.Url)
 		util.CheckErr(err)
-		dst, err := base64.StdEncoding.DecodeString(res.String())
-		util.CheckErr(err)
-		uris := strings.Split(strings.TrimSpace(string(dst)), "\n")
-		links := parseLinks(uris)
+		s := res.String()
 
+		var uris []string
+		if strings.HasPrefix(s, "vmess://") {
+			uris = strings.Split(s, "\n")
+		} else {
+			dst, err := base64.StdEncoding.DecodeString(s)
+			util.CheckErr(err)
+			uris = strings.Split(strings.TrimSpace(string(dst)), "\n")
+		}
+
+		links := parseLinks(uris)
 		xrayCfg := getXrayConfig(links)
 		if Cfg.DetectLatency {
 			err := detectLatency(xrayCfg)
@@ -149,7 +157,7 @@ func detectLatency(xCfg *xray.Config) error {
 	}
 
 	wg := new(sync.WaitGroup)
-	outboundChan := make(chan *xray.ShadowsocksOutbound)
+	outboundChan := make(chan *xray.OutBound)
 	for i := 0; i < Cfg.DetectThreadNumber; i++ {
 		wg.Add(1)
 		go detectWorker(outboundChan, wg, bar)
@@ -177,8 +185,8 @@ func detectLatency(xCfg *xray.Config) error {
 	return nil
 }
 
-func getFastedOutbound(xCfg *xray.Config) (*xray.ShadowsocksOutbound, error) {
-	var fastedOutbound *xray.ShadowsocksOutbound
+func getFastedOutbound(xCfg *xray.Config) (*xray.OutBound, error) {
+	var fastedOutbound *xray.OutBound
 	for _, outbound := range xCfg.Outbounds {
 		if outbound.Latency == nil {
 			continue
@@ -238,7 +246,7 @@ func appendXrayCoreLogFile() (*os.File, error) {
 	return f, err
 }
 
-func detectWorker(oc chan *xray.ShadowsocksOutbound, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
+func detectWorker(oc chan *xray.OutBound, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
 	defer wg.Done()
 
 	for outbound := range oc {
@@ -247,20 +255,20 @@ func detectWorker(oc chan *xray.ShadowsocksOutbound, wg *sync.WaitGroup, bar *pr
 		client.SetProxy(proxy)
 		client.SetTimeout(5 * time.Second)
 		start := time.Now()
-		_, err := client.R().Get("https://www.google.com/generate_204")
+		_, err := client.R().Get(Cfg.DetectUrl)
 		if err != nil {
 			log.Errorf("request failed by proxy %s: %+v", proxy, err)
 		} else {
 			since := time.Since(start)
 			outbound.Latency = &since
-			s := outbound.Settings.Servers[0]
-			log.Infof("%s:%d cost %dms", s.Address, s.Port, outbound.Latency.Milliseconds())
+			ap := outbound.Settings.GetAddressPort()
+			log.Infof("%s:%d cost %dms", ap.GetAddress(), ap.GetPort(), outbound.Latency.Milliseconds())
 		}
 		_ = bar.Add(1)
 	}
 }
 
-func randomInboundPorts(outbounds []*xray.ShadowsocksOutbound) []int {
+func randomInboundPorts(outbounds []*xray.OutBound) []int {
 	var ports []int
 	offset := 0
 	for range outbounds {
@@ -303,7 +311,7 @@ func writeTempConfig(xCfg *xray.Config) (*os.File, error) {
 	return f, nil
 }
 
-func getRoutingRules(inbound *xray.Inbound, outbound *xray.ShadowsocksOutbound) *xray.Rule {
+func getRoutingRules(inbound *xray.Inbound, outbound *xray.OutBound) *xray.Rule {
 	return &xray.Rule{
 		Type:        "field",
 		InboundTag:  []string{inbound.Tag},
@@ -359,7 +367,7 @@ func parseLinks(uris []string) []*Link {
 		case protocol.Vmess:
 			cfg, err := protocol.ParseVmessUri(uri)
 			if err != nil {
-				log.Warn("illegal shadowsocks uri schema: " + uri)
+				log.Warn("illegal vmess uri schema: " + uri)
 				continue
 			}
 			links = append(links, &Link{
@@ -398,27 +406,14 @@ func getXrayConfig(links []*Link) *xray.Config {
 	}
 }
 
-func getOutBounds(links []*Link) []*xray.ShadowsocksOutbound {
-	var outbounds []*xray.ShadowsocksOutbound
+func getOutBounds(links []*Link) []*xray.OutBound {
+	var outbounds []*xray.OutBound
 	for i, link := range links {
-		outbounds = append(outbounds, &xray.ShadowsocksOutbound{
-			BaseOutbound: xray.BaseOutbound{
-				Tag:      "outbound" + strconv.Itoa(i), // 应该测速后选择最合适的设置 tag 为 proxy
-				Protocol: "shadowsocks",
-				Comment:  link.SsCfg.Comment,
-			},
-			Settings: &xray.OutboundSettings{
-				Servers: []*xray.ShadowsocksServer{
-					{
-						Address:  link.SsCfg.Hostname,
-						Method:   link.SsCfg.Method,
-						Ota:      false,
-						Password: link.SsCfg.Password,
-						Port:     link.SsCfg.Port,
-						Level:    1,
-					},
-				},
-			},
+		outbounds = append(outbounds, &xray.OutBound{
+			Tag:      "outbound" + strconv.Itoa(i), // 应该测速后选择最合适的设置 tag 为 proxy
+			Protocol: getOutboundProtocol(link),
+			Comment:  getOutboundComment(link),
+			Settings: getOutboundSettings(link),
 			StreamSettings: &xray.StreamSettings{
 				Network: "tcp",
 			},
@@ -429,6 +424,66 @@ func getOutBounds(links []*Link) []*xray.ShadowsocksOutbound {
 		})
 	}
 	return outbounds
+}
+
+func getOutboundComment(link *Link) string {
+	if link.SsCfg != nil {
+		return link.SsCfg.Comment
+	}
+	return link.VmessCfg.Ps
+}
+
+func getOutboundSettings(link *Link) *xray.OutboundSettings {
+	s := new(xray.OutboundSettings)
+	if link.SsCfg != nil {
+		c := link.SsCfg
+		s.Servers = []*xray.ShadowsocksServer{
+			{
+				Address:  c.Hostname,
+				Method:   c.Method,
+				Ota:      false,
+				Password: c.Password,
+				Port:     c.Port,
+				Level:    1,
+			},
+		}
+	} else {
+		c := link.VmessCfg
+		p, err := c.Port.Int64()
+		if err != nil {
+			util.CheckErr(err)
+		}
+		aid, err := c.Aid.Int64()
+		if err != nil {
+			util.CheckErr(err)
+		}
+		s.Vnext = []*xray.Vnext{
+			{
+				Address: c.Add,
+				Port:    int(p),
+				Users: []xray.User{
+					{
+						Id:       c.Id,
+						AlterId:  int(aid),
+						Email:    "",
+						Security: c.Scy,
+					},
+				},
+			},
+		}
+	}
+
+	return s
+}
+
+func getOutboundProtocol(link *Link) string {
+	var p string
+	if link.SsCfg != nil {
+		p = "shadowsocks"
+	} else {
+		p = "vmess"
+	}
+	return p
 }
 
 func getInbounds() []*xray.Inbound {

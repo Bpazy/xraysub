@@ -49,8 +49,50 @@ type ShadowsocksServer struct {
 	Level    int    `json:"level"`
 }
 
+func (s ShadowsocksServer) GetAddress() string {
+	return s.Address
+}
+
+func (s ShadowsocksServer) GetPort() int {
+	return s.Port
+}
+
+type User struct {
+	Id       string `json:"id"`
+	AlterId  int    `json:"alterId"`
+	Email    string `json:"email"`
+	Security string `json:"security"`
+}
+
+type Vnext struct {
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+	Users   []User `json:"users"`
+}
+
+func (v Vnext) GetAddress() string {
+	return v.Address
+}
+
+func (v Vnext) GetPort() int {
+	return v.Port
+}
+
 type OutboundSettings struct {
 	Servers []*ShadowsocksServer `json:"servers"`
+	Vnext   []*Vnext             `json:"vnext"`
+}
+
+func (s OutboundSettings) GetAddressPort() AddressPort {
+	if len(s.Servers) != 0 {
+		return s.Servers[0]
+	}
+	return s.Vnext[0]
+}
+
+type AddressPort interface {
+	GetAddress() string
+	GetPort() int
 }
 
 type StreamSettings struct {
@@ -62,25 +104,21 @@ type Mux struct {
 	Concurrency int  `json:"concurrency"`
 }
 
-type BaseOutbound struct {
+type OutBound struct {
 	Tag      string `json:"tag"`
 	Protocol string `json:"protocol"`
 
-	Latency *time.Duration `json:"-"` // server's latency
-	Inbound *Inbound       `json:"-"` // bound inbound for detecting latency
-	Comment string         `json:"-"`
-}
-
-type ShadowsocksOutbound struct {
-	BaseOutbound
+	Latency        *time.Duration    `json:"-"` // server's latency
+	Inbound        *Inbound          `json:"-"` // bound inbound for detecting latency
+	Comment        string            `json:"-"`
 	Settings       *OutboundSettings `json:"settings"`
 	StreamSettings *StreamSettings   `json:"streamSettings"`
 	Mux            *Mux              `json:"mux"`
 }
 
-func (o ShadowsocksOutbound) PrettyComment() string {
-	s := o.Settings.Servers[0]
-	addr := fmt.Sprintf("%s:%d", s.Address, s.Port)
+func (o OutBound) PrettyComment() string {
+	ap := o.Settings.GetAddressPort()
+	addr := fmt.Sprintf("%s:%d", ap.GetAddress(), ap.GetPort())
 	if o.Comment != "" {
 		return fmt.Sprintf("%s(%s)", o.Comment, addr)
 	}
@@ -88,11 +126,11 @@ func (o ShadowsocksOutbound) PrettyComment() string {
 }
 
 type Config struct {
-	Policy    *Policy                `json:"policy"`
-	Log       *Log                   `json:"log"`
-	Inbounds  []*Inbound             `json:"inbounds"`
-	Outbounds []*ShadowsocksOutbound `json:"outbounds"`
-	Routing   *Routing               `json:"routing"`
+	Policy    *Policy     `json:"policy"`
+	Log       *Log        `json:"log"`
+	Inbounds  []*Inbound  `json:"inbounds"`
+	Outbounds []*OutBound `json:"outbounds"`
+	Routing   *Routing    `json:"routing"`
 }
 
 type Rule struct {
