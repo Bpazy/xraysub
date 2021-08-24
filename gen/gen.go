@@ -357,14 +357,22 @@ func parseLinks(uris []string) []*Link {
 				SsCfg: cfg,
 			})
 		case protocol.Vmess:
-
+			cfg, err := protocol.ParseVmessUri(uri)
+			if err != nil {
+				log.Warn("illegal shadowsocks uri schema: " + uri)
+				continue
+			}
+			links = append(links, &Link{
+				VmessCfg: cfg,
+			})
 		}
 	}
 	return links
 }
 
 type Link struct {
-	SsCfg *protocol.ShadowsocksConfig
+	SsCfg    *protocol.ShadowsocksConfig
+	VmessCfg *protocol.VmessConfig
 }
 
 // build xray-core config

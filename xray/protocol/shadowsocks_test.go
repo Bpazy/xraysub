@@ -16,7 +16,7 @@ func TestParseShadowsocksUri(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "without comment",
+			name: "shadowsocks without comment",
 			args: args{"ss://YWVzLTI1Ni1nY206dGVzdHBhc3N3b3Jk@127.0.0.1:51507"},
 			want: &ShadowsocksConfig{
 				Method:   "aes-256-gcm",
@@ -26,7 +26,7 @@ func TestParseShadowsocksUri(t *testing.T) {
 			},
 			wantErr: false,
 		}, {
-			name: "with comment",
+			name: "shadowsocks with comment",
 			args: args{"ss://YWVzLTI1Ni1nY206dGVzdHBhc3N3b3Jk@127.0.0.1:51507#test%20comment"},
 			want: &ShadowsocksConfig{
 				Method:   "aes-256-gcm",
@@ -37,7 +37,7 @@ func TestParseShadowsocksUri(t *testing.T) {
 			},
 			wantErr: false,
 		}, {
-			name:    "incorrect",
+			name:    "shadowsocks incorrect",
 			args:    args{"ss://illegalbase64@127.0.0.1:51507"},
 			wantErr: true,
 		},
