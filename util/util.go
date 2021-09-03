@@ -20,4 +20,6 @@ func Closeq(c io.Closer) {
 	silently(c.Close())
 }
 
-func silently(_ ...interface{}) {}
+func silently(_ ...interface{}) {
+	// empty
+}
