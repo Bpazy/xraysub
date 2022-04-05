@@ -15,7 +15,7 @@ $ ./xraysub.exe gen --url=https://comfysub.example.com
 Requesting subscriptions from https://comfysub.example.com
 Start detecting server's latency
         Detecting 100% [========================================]  [6s:0s]
-Got fastest node "中国-香港 IEPL(hkoqze01.nq1too321coo1oo.xyz:51507)" with latency 127ms
+Got fastest node "中国-香港 IEPL(hk.example.com:61307)" with latency 127ms
 The xray-core's configuration file is saved ./xray-config.json
 ```
 
