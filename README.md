@@ -1,3 +1,4 @@
+English | [简体中文](./README-zh_CN.md)
 <h1 align="center">Xraysub</h1>
 
 <div align="center">
