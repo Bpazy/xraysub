@@ -57,6 +57,20 @@ func (s ShadowsocksServer) GetPort() int {
 	return s.Port
 }
 
+type TrojanServer struct {
+	Address  string `json:"address"`
+	Password string `json:"password"`
+	Port     int    `json:"port"`
+}
+
+func (s TrojanServer) GetAddress() string {
+	return s.Address
+}
+
+func (s TrojanServer) GetPort() int {
+	return s.Port
+}
+
 type User struct {
 	Id       string `json:"id"`
 	AlterId  int    `json:"alterId"`
