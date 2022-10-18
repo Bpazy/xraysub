@@ -14,7 +14,8 @@ func TestGetProtocol(t *testing.T) {
 	}{
 		{name: "vmess test", args: args{"vmess://d6Npz6dxdHxmKY@127.0.0.1:51507#this+is+comment"}, want: Vmess},
 		{name: "shadowsocks test", args: args{"ss://d6Npz6dxdHxmKY@127.0.0.1:51507#this+is+comment"}, want: Shadowsocks},
-		{name: "error test", args: args{"trojan://d6Npz6dxdHxmKY@127.0.0.1:51507#this+is+comment"}, want: None, wantErr: true},
+		{name: "trojan test", args: args{"trojan://a6a647d2-1234-4c19-a343-beeec21a66ac@127.0.0.1:51507"}, want: Trojan},
+		{name: "error test", args: args{"invalid://d6Npz6dxdHxmKY@127.0.0.1:51507#this+is+comment"}, want: None, wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

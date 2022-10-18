@@ -11,6 +11,7 @@ const (
 	None        = ""
 	Vmess       = "vmess"
 	Shadowsocks = "ss"
+	Trojan      = "trojan"
 )
 
 func GetProtocol(uri string) (Type, error) {
@@ -19,10 +20,12 @@ func GetProtocol(uri string) (Type, error) {
 		return noneProtocolType()
 	}
 	switch split[0] {
-	case "ss":
+	case Shadowsocks:
 		return Shadowsocks, nil
-	case "vmess":
+	case Vmess:
 		return Vmess, nil
+	case Trojan:
+		return Trojan, nil
 	}
 	return noneProtocolType()
 }

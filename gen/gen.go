@@ -373,14 +373,24 @@ func parseLinks(uris []string) []*Link {
 			links = append(links, &Link{
 				VmessCfg: cfg,
 			})
+		case protocol.Trojan:
+			cfg, err := protocol.ParseTrojanUri(uri)
+			if err != nil {
+				log.Warn("illegal vmess uri schema: " + uri)
+				continue
+			}
+			links = append(links, &Link{
+				TrojanCfg: cfg,
+			})
 		}
 	}
 	return links
 }
 
 type Link struct {
-	SsCfg    *protocol.ShadowsocksConfig
-	VmessCfg *protocol.VmessConfig
+	SsCfg     *protocol.ShadowsocksConfig
+	VmessCfg  *protocol.VmessConfig
+	TrojanCfg *protocol.TrojanConfig
 }
 
 // build xray-core config
@@ -415,7 +425,8 @@ func getOutBounds(links []*Link) []*xray.OutBound {
 			Comment:  getOutboundComment(link),
 			Settings: getOutboundSettings(link),
 			StreamSettings: &xray.StreamSettings{
-				Network: "tcp",
+				Network:  "tcp",
+				Security: getOutboundStreamSettingsSecurity(link),
 			},
 			Mux: &xray.Mux{
 				Enabled:     false,
@@ -426,9 +437,19 @@ func getOutBounds(links []*Link) []*xray.OutBound {
 	return outbounds
 }
 
+func getOutboundStreamSettingsSecurity(link *Link) string {
+	if link.SsCfg != nil {
+		return ""
+	}
+	return "tls"
+}
+
 func getOutboundComment(link *Link) string {
 	if link.SsCfg != nil {
 		return link.SsCfg.Comment
+	}
+	if link.TrojanCfg != nil {
+		return ""
 	}
 	return link.VmessCfg.Ps
 }
@@ -436,39 +457,45 @@ func getOutboundComment(link *Link) string {
 func getOutboundSettings(link *Link) *xray.OutboundSettings {
 	s := new(xray.OutboundSettings)
 	if link.SsCfg != nil {
-		c := link.SsCfg
-		s.Servers = []*xray.ShadowsocksServer{
-			{
-				Address:  c.Hostname,
-				Method:   c.Method,
+		s.Servers = []interface{}{
+			&xray.ShadowsocksServer{
+				Address:  link.SsCfg.Hostname,
+				Method:   link.SsCfg.Method,
 				Ota:      false,
-				Password: c.Password,
-				Port:     c.Port,
+				Password: link.SsCfg.Password,
+				Port:     link.SsCfg.Port,
 				Level:    1,
 			},
 		}
-	} else {
-		c := link.VmessCfg
-		p, err := c.Port.Int64()
+	} else if link.VmessCfg != nil {
+		p, err := link.VmessCfg.Port.Int64()
 		if err != nil {
 			util.CheckErr(err)
 		}
-		aid, err := c.Aid.Int64()
+		aid, err := link.VmessCfg.Aid.Int64()
 		if err != nil {
 			util.CheckErr(err)
 		}
 		s.Vnext = []*xray.Vnext{
 			{
-				Address: c.Add,
+				Address: link.VmessCfg.Add,
 				Port:    int(p),
 				Users: []xray.User{
 					{
-						Id:       c.Id,
+						Id:       link.VmessCfg.Id,
 						AlterId:  int(aid),
 						Email:    "",
-						Security: c.Scy,
+						Security: link.VmessCfg.Scy,
 					},
 				},
+			},
+		}
+	} else {
+		s.Servers = []interface{}{
+			&xray.TrojanServer{
+				Address:  link.TrojanCfg.Host,
+				Password: link.TrojanCfg.Password,
+				Port:     link.TrojanCfg.Port,
 			},
 		}
 	}
@@ -480,8 +507,10 @@ func getOutboundProtocol(link *Link) string {
 	var p string
 	if link.SsCfg != nil {
 		p = "shadowsocks"
-	} else {
+	} else if link.VmessCfg != nil {
 		p = "vmess"
+	} else {
+		p = "trojan"
 	}
 	return p
 }
