@@ -20,7 +20,8 @@ func TestParseTrojanUri(t *testing.T) {
 			args: args{"trojan://a6a647d2-1234-4c19-a343-beeec21a66ac@127.0.0.1:51507"},
 			want: &TrojanConfig{
 				Password: "a6a647d2-1234-4c19-a343-beeec21a66ac",
-				Host:     "127.0.0.1:51507",
+				Host:     "127.0.0.1",
+				Port:     51507,
 			},
 			wantErr: false,
 		},

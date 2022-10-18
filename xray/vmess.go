@@ -93,13 +93,18 @@ func (v Vnext) GetPort() int {
 }
 
 type OutboundSettings struct {
-	Servers []*ShadowsocksServer `json:"servers"`
-	Vnext   []*Vnext             `json:"vnext"`
+	Servers []interface{} `json:"servers"`
+	Vnext   []*Vnext      `json:"vnext"`
 }
 
 func (s OutboundSettings) GetAddressPort() AddressPort {
 	if len(s.Servers) != 0 {
-		return s.Servers[0]
+		switch s.Servers[0].(type) {
+		case *ShadowsocksServer:
+			return s.Servers[0].(*ShadowsocksServer)
+		case *TrojanServer:
+			return s.Servers[0].(*TrojanServer)
+		}
 	}
 	return s.Vnext[0]
 }
@@ -110,7 +115,8 @@ type AddressPort interface {
 }
 
 type StreamSettings struct {
-	Network string `json:"network"`
+	Network  string `json:"network"`
+	Security string `json:"security"`
 }
 
 type Mux struct {
