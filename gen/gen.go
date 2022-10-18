@@ -15,7 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -300,7 +299,7 @@ func writeTempConfig(xCfg *xray.Config) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := ioutil.TempFile(os.TempDir(), "xray.config.json")
+	f, err := os.CreateTemp(os.TempDir(), "xray.config.json")
 	if err != nil {
 		return nil, fmt.Errorf("create temp file 'xray.config.json' error: %w", err)
 	}
@@ -340,7 +339,7 @@ func getInboundFromOutbound(i int, port int) *xray.Inbound {
 func writeFile(cfg *xray.Config, path string) {
 	j, err := json.Marshal(cfg)
 	util.CheckErr(err)
-	err = ioutil.WriteFile(path, j, 0644)
+	err = os.WriteFile(path, j, 0644)
 	util.CheckErr(err)
 	fmt.Printf("The xray-core's configuration file is saved %s\n", path)
 }
