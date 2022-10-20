@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/Bpazy/xraysub/util"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -10,6 +10,7 @@ import (
 var (
 	// buildVer represents 'xraysub' build version
 	buildVer string
+	verbose  bool
 
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
@@ -21,13 +22,21 @@ K E E P   R I D I N G   /   N E V E R   L O O K   B A C K`,
 )
 
 func init() {
-	logrus.SetFormatter(&logrus.TextFormatter{
+	cobra.OnInitialize(initConfig)
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
+}
+
+func initConfig() {
+	log.SetFormatter(&log.TextFormatter{
 		DisableQuote: true,
 	})
 
 	file, err := getLogFile()
 	util.CheckErr(err)
-	logrus.SetOutput(file)
+	log.SetOutput(file)
+	if verbose {
+		log.SetLevel(log.DebugLevel)
+	}
 }
 
 func getLogFile() (*os.File, error) {

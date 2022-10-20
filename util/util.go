@@ -2,7 +2,7 @@ package util
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 )
@@ -12,7 +12,7 @@ func CheckErr(err error) {
 		return
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "Error: ", err)
-	logrus.Errorf("Error: %+v", err)
+	log.Errorf("Error: %+v", err)
 	os.Exit(1)
 }
 
