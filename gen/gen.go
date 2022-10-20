@@ -419,14 +419,11 @@ func getOutBounds(links []*Link) []*xray.OutBound {
 	var outbounds []*xray.OutBound
 	for i, link := range links {
 		outbounds = append(outbounds, &xray.OutBound{
-			Tag:      "outbound" + strconv.Itoa(i), // 应该测速后选择最合适的设置 tag 为 proxy
-			Protocol: getOutboundProtocol(link),
-			Comment:  getOutboundComment(link),
-			Settings: getOutboundSettings(link),
-			StreamSettings: &xray.StreamSettings{
-				Network:  "tcp",
-				Security: getOutboundStreamSettingsSecurity(link),
-			},
+			Tag:            "outbound" + strconv.Itoa(i), // 应该测速后选择最合适的设置 tag 为 proxy
+			Protocol:       getOutboundProtocol(link),
+			Comment:        getOutboundComment(link),
+			Settings:       getOutboundSettings(link),
+			StreamSettings: getOutboundStreamSettings(link),
 			Mux: &xray.Mux{
 				Enabled:     false,
 				Concurrency: -1,
@@ -434,6 +431,23 @@ func getOutBounds(links []*Link) []*xray.OutBound {
 		})
 	}
 	return outbounds
+}
+
+func getOutboundStreamSettings(link *Link) *xray.StreamSettings {
+	if link.SsCfg != nil || link.TrojanCfg != nil {
+		return &xray.StreamSettings{
+			Network:  "tcp",
+			Security: getOutboundStreamSettingsSecurity(link),
+		}
+	}
+	if link.VmessCfg != nil {
+		return &xray.StreamSettings{
+			Network:    link.VmessCfg.Net,
+			WsSettings: nil,
+		}
+	}
+	// TODO error handle
+	panic(fmt.Sprintf("Not supported protocol: %+v", link))
 }
 
 func getOutboundStreamSettingsSecurity(link *Link) string {
