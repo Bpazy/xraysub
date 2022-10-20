@@ -9,10 +9,13 @@ LDFLAGS="-s -w -X github.com/Bpazy/xraysub/cmd.buildVer=${VERSION}"
 GOBUILD=go build -ldflags=${LDFLAGS}
 CMDPATH=.
 
-all: linux-amd64 darwin-amd64 windows-amd64 # Most used
+all: linux-amd64 darwin-amd64 darwin-arm64 windows-amd64 # Most used
 
 darwin-amd64:
 	GOARCH=amd64 GOOS=darwin $(GOBUILD) -o $(BINDIR)/$(FULLNAME) $(CMDPATH)
+
+darwin-arm64:
+	GOARCH=arm64 GOOS=darwin $(GOBUILD) -o $(BINDIR)/$(FULLNAME) $(CMDPATH)
 
 linux-amd64:
 	GOARCH=amd64 GOOS=linux $(GOBUILD) -o $(BINDIR)/$(FULLNAME) $(CMDPATH)
