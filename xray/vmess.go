@@ -115,8 +115,9 @@ type AddressPort interface {
 }
 
 type StreamSettings struct {
-	Network  string `json:"network"`
-	Security string `json:"security"`
+	Network    string      `json:"network"`
+	Security   string      `json:"security"`
+	WsSettings interface{} `json:"wsSettings"`
 }
 
 type Mux struct {
