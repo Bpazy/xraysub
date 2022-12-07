@@ -1,26 +1,26 @@
 on:
+  release:
+    types: [published]
   push:
     tags:
-      - "v*"
-
-name: Build Release
+      - '*'
+name: Handle Release
 
 jobs:
   build:
+    name: Create release-artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
           go-version: 1.19
-
-      - name: Build the artifacts
-        run: make NAME=xraysub
-
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - run: make
+      - name: Upload the artifacts
+        uses: svenstaro/upload-release-action@v2
         with:
-          body: ${{steps.build_changelog.outputs.changelog}}
-          files: 'bin/*'
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: bin/*
+          overwrite: true
+          file_glob: true
+          tag: ${{ github.ref }}
